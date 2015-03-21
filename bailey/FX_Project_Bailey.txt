@@ -1,0 +1,4 @@
+-I plan to use FX data for 15 major currency pairs to try to detect abnormal market movements at certain times of the day.
+-I have access to the data from the following website: https://www.truefx.com/?page=downloads
+-I have already written a script in Python that will go to the website and download each zip file, and unzip it and save it in a folder
+-I plan to try to test Benford's law using this data

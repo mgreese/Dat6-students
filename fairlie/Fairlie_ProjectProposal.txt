@@ -1,23 +1,25 @@
 Brian Fairlie
 DAT6 - Project Proposal
 
-- What is the question you hope to answer? 
+#NAME?
 
 I hope to be able to determine a number of factors that contribute to the resonance of Tweets issued 
 by members of violent extremist organizations.
+Revision 1: I particularly want to look at the consumption and behavioral habits of VEO-affiliated users, such as best time of day to post, best day of week, which variables within a tweet show up the most often in the most popular Tweets (particular words, hashtags, links, etc., what types of content (photo, videos, plain text, etc.) are featured in the Tweets that receive the most engagement"
+Revision 2: I will be looking to determine a Tweet's resonance by looking at more than just the Retweets and Favorites. I would be looking to include any "significant clicks" (embedded video plays, URL clicks, profile link clicks, photo enlargments, etc.) and then divide that figure by the reach rate. To do this, I will need to write additional code to combine all of the aformentioned "clicks" for each Tweet and then divide them by the number of users to whom the Tweet was shown. Would it be better to use R to perform this action? I am familiar with running decision trees through R Studio.
 
+#NAME?
 
-- What data are you planning to use to answer that question? 
+"Twitter metadata, pulled from the Twitter API "
+Revision 3: Perhaps just export a data set from one of the social media monitoring tools that I use at work (Scraawl, Sysomos, etc.)"
 
-Twitter metadata, pulled from the Twitter API
-
-
-- What do you know about the data so far? 
+#NAME?
 
 I know that I am going to need a large data set and that I will likely need to use multiple API keys 
 to make enough data calls (due to call limitations).
 
+Revision 4: I imagine that at least 6 months of Tweets would be enough to establish a worthwhile trend.
 
-- Why did you choose this topic?
+#NAME?
 
 It's related to my line of work and behavioral psychology fascinates me.
