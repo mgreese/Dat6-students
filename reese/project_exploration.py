@@ -41,6 +41,56 @@ states = pd.read_csv('https://www.census.gov/popest/data/state/totals/2011/table
 #Number of international adoptions by state
 statesadopt = pd.read_csv('../../dat6-students/reese/state_international_adoptions.csv')
 
+#Percentage of domestic adoption cases that received some sort of subsidy
+subsidy_2013 = pd.read_csv('../../dat6-students/reese/domestic_information/adoption_subsidy2013.csv')
+
+#Distribution of ages in domestic adoptions in 2013
+age_2013 = pd.read_csv('../../dat6-students/reese/domestic_information/final_age2013.csv')
+
+#Domestic gender distribution 2013
+gender_2013 = pd.read_csv('../../dat6-students/reese/domestic_information/gender2013.csv')
+
+#Data related to relatives involved with adoption/foster process in 2013
+relative_2013 = pd.read_csv('../../dat6-students/reese/domestic_information/prior_relations2013.csv')
+
+#Breakdown of proportion of cases deemed 'special needs' in domestic adoption.
+#Note 'special needs' is defined per state and not standardized across data
+sneeds_2013 = pd.read_csv('../../dat6-students/reese/domestic_information/special_needs2013.csv')
+
+#Time between termination of parental rights and adoption finalization
+tpr_2013 = pd.read_csv('../../dat6-students/reese/domestic_information/tpr2013.csv')
+
+#Domestic adoption race data 2013
+race_2013 = pd.read_csv('../../dat6-students/reese/domestic_information/domestic_race2013.csv')
+
+#Group all the dataframes into a list
+newlist = [statesadopt, subsidy_2013, age_2013, gender_2013,relative_2013, sneeds_2013, tpr_2013, race_2013]
+
+#Testing out merging
+newframe = pd.merge(tpr_2013, sneeds_2013, on = 'State', how = 'left')
+
+#Merge all the dataframes
+states = pd.DataFrame(subsidy_2013.State)
+for thislist in newlist:
+    try:
+        states = pd.merge(states, thislist, on = 'State', how = 'left')
+    except:
+        print thislist.head(1)
+    #print thislist.head()
+
+#Eliminate spaces in column headers    
+for strings in states.columns:
+    states.rename(columns = {strings : strings.replace(' ','_')}, inplace = True)
+
+for df in newlist:
+    for column in df:
+        column.capitalize()
+
+for strings in states.columns:
+    try:
+        print states[strings][30]
+    except:
+        print 'Didn\'t work'
 #Get a sense of the data
 data.head()
 '''
@@ -63,7 +113,7 @@ data.number_of_convention_cases.isnull()
 #Get a general graph of the data
 
 #Is there a correlation between adoptions finalized abroad vs. in the US?
-data.plot(x = ['adoptions_finalized_abroad'], y = ['adoptions_to_be_finalized_in_the_u.s.'], kind = 'scatter', xlim = (0,2500))
+data.plot(x = ['Adoptions_Finalized_Abroad'], y = ['Adoptions_To_Be_Finalized_In_The_U.S.'], kind = 'scatter', xlim = (0,2500))
 #Looks very L shaped. Slope looks undefined. Let's look closer
 data.plot(x = ['adoptions_finalized_abroad'], y = ['adoptions_to_be_finalized_in_the_u.s.'], kind = 'scatter', xlim = (0,500))
 #Still L shaped. Let's look closer again:
@@ -101,4 +151,16 @@ data_is_hague.shape
 data_not_hague.shape
 
 #Moving on to State data
+
+#Clean up column headers
+for strings in statesadopt:
+    statesadopt.rename(columns = {strings : strings.replace(' ','_')}, inplace = True)
 statesadopt.head()
+
+#Preliminary plot
+plt.scatter(statesadopt['adoptions_finalized_abroad'], statesadopt['adoptions_to_be_finalized_in_the_united_states'])
+plt.xlabel('Adoptions Finalized Abroad')
+plt.ylabel('Adoptions Finalized Domestically')
+plt.xlim(-10, 200)
+plt.ylim(-10,40)
+#Need to standardize data. Maybe by adoption per 1k residents?
