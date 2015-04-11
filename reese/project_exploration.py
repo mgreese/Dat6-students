@@ -31,10 +31,61 @@ import matplotlib.pyplot as plt
 from sklearn.cross_validation import train_test_split
 from math import e
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+from sklearn import datasets
 
+
+"""
+International Adoption Analysis
+
+Divides countries into Hague & Non-Hague Participants
+
+There is generally more info available for Hague Participants
+
+"""
 #Country adoption numbers
 data = pd.read_csv('../../dat6-students/reese/adoption_countries.csv')
+for thislist in data.columns:
+    data.rename(columns = {thislist : thislist.replace(' ','_')}, inplace = True)
+nan_data = data.fillna(value='not_applicable')
+hague_data = nan_data[nan_data['number_of_convention_cases'] != 'not_applicable']
 
+#China is an outlier, so let's ignore it for now.
+hague_data_no_china = hague_data.set_index(hague_data['country'])
+hague_data_no_china = hague_data_no_china.drop(hague_data_no_china['country']['China'])
+
+#KMeans Cluster
+est = KMeans(n_clusters = 3,init='random')
+est.fit(hague_data[['adoptions_finalized_abroad','adoptions_to_be_finalized_in_the_u.s.','average_days_to_completion']])
+y_kmeans = est.predict(hague_data[['adoptions_finalized_abroad','adoptions_to_be_finalized_in_the_u.s.','average_days_to_completion']])
+
+nchina_est = KMeans(n_clusters = 3, init='random')
+nchina_est.fit(hague_data_no_china[['adoptions_finalized_abroad','adoptions_to_be_finalized_in_the_u.s.','average_days_to_completion']])
+nchina_y_kmeans = nchina_est.predict(hague_data_no_china[['adoptions_finalized_abroad','adoptions_to_be_finalized_in_the_u.s.','average_days_to_completion']])
+
+#Scatter plot
+colors = np.array(['red','blue','yellow'])
+plt.figure()
+plt.scatter(hague_data['average_days_to_completion'],hague_data['adoptions_finalized_abroad'],c=colors[y_kmeans])
+
+#With no China
+plt.figure()
+plt.scatter(hague_data_no_china['average_days_to_completion'],hague_data_no_china['adoptions_finalized_abroad'],c=colors[nchina_y_kmeans])
+plt.xlabel('Average Days to Completion')
+plt.ylabel('Adoptions Finalized Abroad')
+
+plt.figure()
+plt.scatter(hague_data_no_china['average_days_to_completion'],hague_data_no_china['adoptions_to_be_finalized_in_the_u.s.'], c=colors[nchina_y_kmeans])
+plt.xlabel('Average Days to Completion')
+plt.ylabel('Adoptions to be Finalized in the U.S.')
+
+#Maybe there's something to do with proportion adoption finalized domestic vs abroad?
+hague_data_no_china['domestic_over_abroad'] = hague_data_no_china['adoptions_to_be_finalized_in_the_u.s.'] / (hague_data_no_china['adoptions_finalized_abroad'] + 1)
+plt.figure()
+plt.scatter(hague_data_no_china['average_days_to_completion'],hague_data_no_china['domestic_over_abroad'],c=colors[nchina_y_kmeans])
+plt.xlabel('Average Days to Completion')
+plt.ylabel('Proportion Domestic/Abroad')
 #State census information
 states = pd.read_csv('https://www.census.gov/popest/data/state/totals/2011/tables/NST-EST2011-01.csv')
 

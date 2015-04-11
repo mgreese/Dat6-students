@@ -50,7 +50,9 @@ d['country'][d['country_cluster'] == 2]
 d[d['country_cluster'] == 0].describe()
 d[d['country_cluster'] == 1].describe()
 d[d['country_cluster'] == 2].describe()
-             
+d.groupby('country_cluster').describe()
 # Advanced: Re-run the cluster analysis after centering and scaling all four variables 
-             
+#for each datapoint, subtract the mean (center) and divide by the standard deviation (scale)
+
 # Advanced: How do the results change after they are centered and scaled? Why is this?
+#GDP was on a different scale than the other measure. Standardizing it equalized influence.
