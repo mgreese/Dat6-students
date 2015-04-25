@@ -47,45 +47,44 @@ There is generally more info available for Hague Participants
 #Country adoption numbers
 data = pd.read_csv('../../dat6-students/reese/adoption_countries.csv')
 for thislist in data.columns:
-    data.rename(columns = {thislist : thislist.replace(' ','_')}, inplace = True)
-nan_data = data.fillna(value='not_applicable')
-hague_data = nan_data[nan_data['number_of_convention_cases'] != 'not_applicable']
+    data.rename(columns = {thislist : thislist.replace(' ','_')}, inplace = True) #Rename columns to eliminate spaces
+data.describe()                                                                 #There is a massive variance. Let's try to standardize data
 
-#China is an outlier, so let's ignore it for now.
-hague_data_no_china = hague_data.set_index(hague_data['country'])
-hague_data_no_china = hague_data_no_china.drop(hague_data_no_china['country']['China'])
+#Let's look at proportions of where adoptions are finalized in lieu of total numbers
+data['total_intl'] = data['adoptions_finalized_abroad'] + data['adoptions_to_be_finalized_in_the_u.s.'] #Cumulative adoption 
+data['intl_prop'] = data['adoptions_finalized_abroad'] / data['total_intl']     #Proportion of a country's adoptions finalized abroad
+data['domestic_prop'] = data['adoptions_to_be_finalized_in_the_u.s.'] / data['total_intl'] #Proportion of a country's adoptions finalized domestically
+data.describe()
+
+#Not all countries follow the Hague Convention. Let's split them out.
+data.isnull().sum()                                                             #3 columns have null values, representing non-Hague countries
+hague_data = data[data['number_of_convention_cases'] > 0]                       #Generates a DataFrame for Hague Convention countries
+hague_data.describe()                                                           #Looks like the proportion of Hague cases finalized abroad is a bit higher
+
+#Hague Convention countries list median adoption 
+hague_data[hague_data['median_asp_convention_adoption_fees'].isnull()]          #There are 3 null values for Greece, Guniea, and Togo
+hague_data.median_asp_convention_adoption_fees.isnull().sum()                   
+hague_data.median_asp_convention_adoption_fees.fillna(hague_data.median_asp_convention_adoption_fees.mean(), inplace=True) #Replace null values with the mean
+
 
 #KMeans Cluster
 est = KMeans(n_clusters = 3,init='random')
-est.fit(hague_data[['adoptions_finalized_abroad','adoptions_to_be_finalized_in_the_u.s.','average_days_to_completion']])
-y_kmeans = est.predict(hague_data[['adoptions_finalized_abroad','adoptions_to_be_finalized_in_the_u.s.','average_days_to_completion']])
-
-nchina_est = KMeans(n_clusters = 3, init='random')
-nchina_est.fit(hague_data_no_china[['adoptions_finalized_abroad','adoptions_to_be_finalized_in_the_u.s.','average_days_to_completion']])
-nchina_y_kmeans = nchina_est.predict(hague_data_no_china[['adoptions_finalized_abroad','adoptions_to_be_finalized_in_the_u.s.','average_days_to_completion']])
+est.fit(hague_data[['intl_prop','domestic_prop','average_days_to_completion','median_asp_convention_adoption_fees']])
+y_kmeans = est.predict(hague_data[['intl_prop','domestic_prop','average_days_to_completion','median_asp_convention_adoption_fees']])
 
 #Scatter plot
 colors = np.array(['red','blue','yellow'])
 plt.figure()
-plt.scatter(hague_data['average_days_to_completion'],hague_data['adoptions_finalized_abroad'],c=colors[y_kmeans])
+plt.scatter(hague_data['average_days_to_completion'],hague_data['intl_prop'],c=colors[y_kmeans])
 
-#With no China
-plt.figure()
-plt.scatter(hague_data_no_china['average_days_to_completion'],hague_data_no_china['adoptions_finalized_abroad'],c=colors[nchina_y_kmeans])
-plt.xlabel('Average Days to Completion')
-plt.ylabel('Adoptions Finalized Abroad')
 
-plt.figure()
-plt.scatter(hague_data_no_china['average_days_to_completion'],hague_data_no_china['adoptions_to_be_finalized_in_the_u.s.'], c=colors[nchina_y_kmeans])
-plt.xlabel('Average Days to Completion')
-plt.ylabel('Adoptions to be Finalized in the U.S.')
+#Fee Analysis
+fee_frame = hague_data['median_asp_convention_adoption_fees'].replace('not_applicable', (hague_data['median_asp_convention_adoption_fees'].mean()))
 
-#Maybe there's something to do with proportion adoption finalized domestic vs abroad?
-hague_data_no_china['domestic_over_abroad'] = hague_data_no_china['adoptions_to_be_finalized_in_the_u.s.'] / (hague_data_no_china['adoptions_finalized_abroad'] + 1)
-plt.figure()
-plt.scatter(hague_data_no_china['average_days_to_completion'],hague_data_no_china['domestic_over_abroad'],c=colors[nchina_y_kmeans])
-plt.xlabel('Average Days to Completion')
-plt.ylabel('Proportion Domestic/Abroad')
+"""
+Domestic Adoption Analysis
+"""
+
 #State census information
 states = pd.read_csv('https://www.census.gov/popest/data/state/totals/2011/tables/NST-EST2011-01.csv')
 
