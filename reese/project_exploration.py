@@ -54,7 +54,15 @@ data.describe()                                                                 
 data['total_intl'] = data['adoptions_finalized_abroad'] + data['adoptions_to_be_finalized_in_the_u.s.'] #Cumulative adoption 
 data['intl_prop'] = data['adoptions_finalized_abroad'] / data['total_intl']     #Proportion of a country's adoptions finalized abroad
 data['domestic_prop'] = data['adoptions_to_be_finalized_in_the_u.s.'] / data['total_intl'] #Proportion of a country's adoptions finalized domestically
+
+#Explore the data
 data.describe()
+
+#Plot it as a histogram
+plt.hist(data['total_intl'], bins=20)
+plt.xlabel('Number of Adoptions')
+plt.ylabel('Number of Countries')
+plt.title('International Adoptions 2013')
 
 #Not all countries follow the Hague Convention. Let's split them out.
 data.isnull().sum()                                                             #3 columns have null values, representing non-Hague countries
@@ -66,20 +74,107 @@ hague_data[hague_data['median_asp_convention_adoption_fees'].isnull()]          
 hague_data.median_asp_convention_adoption_fees.isnull().sum()                   
 hague_data.median_asp_convention_adoption_fees.fillna(hague_data.median_asp_convention_adoption_fees.mean(), inplace=True) #Replace null values with the mean
 
+#Let's look at fees. Why do some countries have generally higher fees?
 
-#KMeans Cluster
-est = KMeans(n_clusters = 3,init='random')
-est.fit(hague_data[['intl_prop','domestic_prop','average_days_to_completion','median_asp_convention_adoption_fees']])
-y_kmeans = est.predict(hague_data[['intl_prop','domestic_prop','average_days_to_completion','median_asp_convention_adoption_fees']])
+#KMeans Cluster - let's look at a number of groupings.
+#How many clusters should we use?
+
+from sklearn import metrics
+k_rng = range(2,10)
+est_rng = [KMeans(n_clusters = k).fit(hague_data[['intl_prop','domestic_prop','average_days_to_completion',\
+    'median_asp_convention_adoption_fees','total_intl']]) for k in k_rng]
+
+silhouette_score = [metrics.silhouette_score(hague_data[['intl_prop','domestic_prop','average_days_to_completion',\
+    'median_asp_convention_adoption_fees','total_intl']],q.labels_,metric = 'euclidean') for q in est_rng]
+    
+plt.figure(figsize=(7, 8))
+plt.subplot(211)
+plt.title('Using the elbow method to inform k choice')
+plt.plot(k_rng, silhouette_score, 'b*-')
+plt.xlim([2,11])
+plt.grid(True)
+plt.ylabel('Silhouette Coefficient')
+plt.plot(5,silhouette_score[3], 'o', markersize=12, markeredgewidth=1.5,
+         markerfacecolor='None', markeredgecolor='r')
+
+#Looks like the best number to use is 5
+
+est = KMeans(n_clusters = 5,init='random')
+est.fit(hague_data[['intl_prop','domestic_prop','average_days_to_completion','median_asp_convention_adoption_fees','total_intl']])
+y_kmeans = est.predict(hague_data[['intl_prop','domestic_prop','average_days_to_completion','median_asp_convention_adoption_fees','total_intl']])
+hague_data['predict'] = y_kmeans
+hague_data[hague_data.predict == 0]
+hague_data[hague_data.predict == 1]
+hague_data[hague_data.predict == 2]
+hague_data[hague_data.predict == 3]
+hague_data[hague_data.predict == 4]
+
 
 #Scatter plot
-colors = np.array(['red','blue','yellow'])
-plt.figure()
+colors = np.array(['red','blue','yellow','green','pink'])
+plt.figure(figsize=(5,5))
+
+plt.subplot(221)
+plt.scatter(hague_data['average_days_to_completion'],hague_data['median_asp_convention_adoption_fees'],c=colors[y_kmeans])
+plt.xlabel('Avg Days to Completion')
+plt.ylabel('Median Fees')
+
+plt.subplot(222)
 plt.scatter(hague_data['average_days_to_completion'],hague_data['intl_prop'],c=colors[y_kmeans])
+plt.xlabel('Avg Days to Completion')
+plt.ylabel('Proportion Finalized Abroad')
 
+plt.subplot(223)
+plt.scatter(hague_data['average_days_to_completion'],hague_data['domestic_prop'],c=colors[y_kmeans])
+plt.xlabel('Avg Days to Completion')
+plt.ylabel('Proportion Finalized Domestically')
 
-#Fee Analysis
-fee_frame = hague_data['median_asp_convention_adoption_fees'].replace('not_applicable', (hague_data['median_asp_convention_adoption_fees'].mean()))
+plt.subplot(224)
+plt.scatter(hague_data['average_days_to_completion'],hague_data['total_intl'],c=colors[y_kmeans])
+plt.xlabel('Avg Days to Completion')
+plt.ylabel('Total Number of Adoptions')
+plt.ylim((0,210))
+
+#It seems like fees are the main determinant in similarity, but that may be
+#due to scaling. Let's see what happens when we scale & center fee data
+
+#Scale the data
+hague_data['scaled_fees'] = (hague_data['median_asp_convention_adoption_fees'] - \
+    hague_data['median_asp_convention_adoption_fees'].mean()) / \
+    hague_data['median_asp_convention_adoption_fees'].std()
+
+#Test new silhouette coefficients
+k_rng = range(2,10)
+est_rng_scaled = [KMeans(n_clusters = k).fit(hague_data[['intl_prop','average_days_to_completion',\
+    'scaled_fees','total_intl']]) for k in k_rng]
+
+#Show the silhouette values
+silhouette_score_scaled = [metrics.silhouette_score(hague_data[['intl_prop','average_days_to_completion',\
+    'scaled_fees','total_intl']],q.labels_,metric = 'euclidean') for q in est_rng]
+
+#Make a new elbow graph
+plt.figure(figsize=(7, 8))
+plt.subplot(211)
+plt.title('Using the elbow method to inform k choice')
+plt.plot(k_rng, silhouette_score_scaled, 'b*-')
+plt.xlim([2,11])
+plt.grid(True)
+plt.ylabel('Silhouette Coefficient')
+#They're all negative now! This isn't good.
+
+#Run a new analysis
+est_scaled = KMeans(n_clusters = 5,init='random')
+est_scaled.fit(hague_data[['intl_prop','average_days_to_completion','scaled_fees','total_intl']])
+y_kmeans_scaled = est_scaled.predict(hague_data[['intl_prop','average_days_to_completion',\
+    'scaled_fees','total_intl']])
+    
+#Graph it
+plt.scatter(hague_data['average_days_to_completion'],hague_data['scaled_fees'], c = colors[y_kmeans_scaled])
+plt.xlabel('Average Days to Completion')
+plt.ylabel('Scaled Median Fees')
+plt.title('Completion Time vs. Fees')
+
+#Unable to determine any relationship based on the given variables.
 
 """
 Domestic Adoption Analysis
@@ -131,18 +226,75 @@ for thislist in newlist:
 #Eliminate spaces in column headers    
 for strings in states.columns:
     states.rename(columns = {strings : strings.replace(' ','_')}, inplace = True)
+    
+#Eliminate totals/
+total_missing = ['Total','Missing']
+for strings in states.columns:
+    if any(x in strings for x in total_missing):
+        del states[strings]
 
-for df in newlist:
-    for column in df:
-        column.capitalize()
+#Eliminate % signs & cast as floats
+for this in states.columns:
+    try:
+        states[this] = states[this].str[:-1].astype(float)
+    except:
+        print strings + ' was unable to convert'
+        
+#Add back in a Total column
+#Remember to eliminate the commas!
+states['Total'] = age_2013['Total N'].str.replace(',','').astype(float)
+        
+#Drop the 'total' index
+states.drop(states.index[52], inplace=  True)
 
+#Make sure all columns are floats
 for strings in states.columns:
     try:
-        print states[strings][30]
+        states[strings] = states[str(strings)].astype(float)
     except:
-        print 'Didn\'t work'
-#Get a sense of the data
-data.head()
+        try:
+            states[strings] = states[strings].str.replace(',','').astype(float)
+        except:
+            print strings + ' was unable to convert'
+
+#Look at some basic scatterplots
+
+#Gender Distribution
+plt.scatter(states.Male,states.Total)
+plt.plot([states.Male.mean(),states.Male.mean()],[0,6000],linewidth=2, color = 'red')
+plt.xlabel('Proportion of Male Adoptions')
+plt.ylabel('Total Number of Adoptions')
+plt.title('Male Adoptions in the US')
+
+#Race Distribution
+plt.figure(figsize = (8,8))
+plt.title('Racial Distribution')
+
+plt.subplot(221)
+plt.scatter(states.White,states.Total)
+plt.xlabel('% White Adoptions')
+plt.ylabel('Total Adoptions')
+plt.plot([states.White.mean(),states.White.mean()],[0,states.Total.max()],linewidth=2, color='red')
+
+plt.subplot(222)
+plt.scatter(states.Black,states.Total)
+plt.xlabel('% Black Adoptions')
+plt.ylabel('Total Adoptions')
+plt.plot([states.Black.mean(),states.Black.mean()],[0,states.Total.max()],linewidth=2,color='red')
+
+plt.subplot(223)
+plt.scatter(states['Hispanic_(of_any_race)'],states.Total)
+plt.xlabel('% Hispanic (of Any Race) Adoptions')
+plt.ylabel('Total Adoptions')
+plt.plot([states['Hispanic_(of_any_race)'].mean(),states['Hispanic_(of_any_race)'].mean()],[0,states.Total.max()],linewidth=2,\
+    color='red')
+
+plt.subplot(224)
+plt.scatter(states.Asian,states.Total)
+plt.xlabel('% Asian Adoptions')
+plt.ylabel('Total Adoptions')
+plt.plot([states.Asian.mean(),states.Asian.mean()],[0,states.Total.max()],linewidth=2,color='red')
+
 '''
 
 Issues to clean:
@@ -151,66 +303,3 @@ Issues to clean:
 3) Deal with NaN values in columns 3-5
 
 '''
-
-#Replace empty spaces with _
-for strings in data:
-    data.rename(columns = {strings : strings.replace(' ','_')}, inplace = True)
-
-data.average_days_to_completion.mean()
-data.head(10)
-data.number_of_convention_cases.isnull()
-
-#Get a general graph of the data
-
-#Is there a correlation between adoptions finalized abroad vs. in the US?
-data.plot(x = ['Adoptions_Finalized_Abroad'], y = ['Adoptions_To_Be_Finalized_In_The_U.S.'], kind = 'scatter', xlim = (0,2500))
-#Looks very L shaped. Slope looks undefined. Let's look closer
-data.plot(x = ['adoptions_finalized_abroad'], y = ['adoptions_to_be_finalized_in_the_u.s.'], kind = 'scatter', xlim = (0,500))
-#Still L shaped. Let's look closer again:
-data.plot(x = ['adoptions_finalized_abroad'], y = ['adoptions_to_be_finalized_in_the_u.s.'], kind = 'scatter', xlim = (0,50),ylim=(0,50))
-#Still L shaped. Looks like, generally, one precludes the other.
-
-#Some of the country names have a * preceding them. According to the key with
-#the original PDF, this means they do not participate in the Hague convention.
-#Does this have any effect on where the adoption is completed?
-
-#First make a numerical column. If a country has an asterisk, it gets 0.
-#Otherwise, 1
-
-def is_hague(row):
-    if '*' not in row['country']:
-        return 1
-    else:
-        return 0
-        
-data['is_hague'] = data.apply(lambda row: is_hague(row), axis = 1)
-
-#We now have 2 dataframes: one for is_hague, one for isnt
-data_is_hague = data[data['is_hague'] == 1]
-data_not_hague = data[data['is_hague'] == 0]
-
-#Let's plot the same graphs
-plt.scatter(data_is_hague['adoptions_finalized_abroad'],data_is_hague['adoptions_to_be_finalized_in_the_u.s.'],color='red',alpha=.75)
-plt.scatter(data_not_hague['adoptions_finalized_abroad'],data_not_hague['adoptions_to_be_finalized_in_the_u.s.'],color='blue',alpha=.75)
-plt.xlim(0,500)
-plt.ylim(0,350)
-#There doesn't seem to be a substantial difference.
-
-#What about size?
-data_is_hague.shape
-data_not_hague.shape
-
-#Moving on to State data
-
-#Clean up column headers
-for strings in statesadopt:
-    statesadopt.rename(columns = {strings : strings.replace(' ','_')}, inplace = True)
-statesadopt.head()
-
-#Preliminary plot
-plt.scatter(statesadopt['adoptions_finalized_abroad'], statesadopt['adoptions_to_be_finalized_in_the_united_states'])
-plt.xlabel('Adoptions Finalized Abroad')
-plt.ylabel('Adoptions Finalized Domestically')
-plt.xlim(-10, 200)
-plt.ylim(-10,40)
-#Need to standardize data. Maybe by adoption per 1k residents?
