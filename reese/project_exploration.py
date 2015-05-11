@@ -59,7 +59,7 @@ data['domestic_prop'] = data['adoptions_to_be_finalized_in_the_u.s.'] / data['to
 data.describe()
 
 #Plot it as a histogram
-plt.hist(data['total_intl'], bins=20)
+plt.hist(data['total_intl'], bins=200)
 plt.xlabel('Number of Adoptions')
 plt.ylabel('Number of Countries')
 plt.title('International Adoptions 2013')
@@ -180,9 +180,13 @@ plt.title('Completion Time vs. Fees')
 Domestic Adoption Analysis
 """
 
-#State census information
-states = pd.read_csv('https://www.census.gov/popest/data/state/totals/2011/tables/NST-EST2011-01.csv')
-
+#State census information - estimates 2013
+state_census = pd.read_csv('http://api.census.gov/data/2013/pep/natstprc?get=POP,STNAME'\
+'&for=state:*&DATE=6&key=aa64249a41c4528213a6e3dfa34ecbb2616a7a0a')
+state_census['state_pop'] = state_census['[["POP"']                             #These numbers are very dirty
+state_census['state_pop'] = state_census['state_pop'].str[2:].str[:-1].\
+    convert_objects(convert_numeric = True)                                     #Cleaned                     
+state_census['State'] = state_census['STNAME']
 #Number of international adoptions by state
 statesadopt = pd.read_csv('../../dat6-students/reese/state_international_adoptions.csv')
 
@@ -209,7 +213,8 @@ tpr_2013 = pd.read_csv('../../dat6-students/reese/domestic_information/tpr2013.c
 race_2013 = pd.read_csv('../../dat6-students/reese/domestic_information/domestic_race2013.csv')
 
 #Group all the dataframes into a list
-newlist = [statesadopt, subsidy_2013, age_2013, gender_2013,relative_2013, sneeds_2013, tpr_2013, race_2013]
+newlist = [statesadopt, subsidy_2013, age_2013, gender_2013,relative_2013, sneeds_2013, tpr_2013, race_2013,\
+    state_census[['State','state_pop']]]
 
 #Testing out merging
 newframe = pd.merge(tpr_2013, sneeds_2013, on = 'State', how = 'left')
@@ -221,7 +226,7 @@ for thislist in newlist:
         states = pd.merge(states, thislist, on = 'State', how = 'left')
     except:
         print thislist.head(1)
-    #print thislist.head()
+#Unable to merge Adoptions finalized abroad vs in the US
 
 #Eliminate spaces in column headers    
 for strings in states.columns:
@@ -231,7 +236,11 @@ for strings in states.columns:
 total_missing = ['Total','Missing']
 for strings in states.columns:
     if any(x in strings for x in total_missing):
-        del states[strings]
+        try:
+            print 'Deleted ' + strings
+            del states[strings]
+        except:
+            print 'Unable to delete ' + strings
 
 #Eliminate % signs & cast as floats
 for this in states.columns:
@@ -256,6 +265,40 @@ for strings in states.columns:
             states[strings] = states[strings].str.replace(',','').astype(float)
         except:
             print strings + ' was unable to convert'
+#State is unable to convert, but that's intended.
+            
+#Remaining issues:
+            #Puerto Rico doesn't have a population value - force it, for now
+states['state_pop'][51] = 3596000
+            #State names have spaces
+            
+#Basic Analysis:
+            
+#Create a new column indicating total adoptions as a proportion of state pop
+states['total_ratio'] = states['Total']/states['state_pop']
+plt.scatter(states['state_pop'],states['Total'])
+plt.scatter(states['state_pop'],states['total_ratio'])
+plt.ylim(0,.0006)                                                               #Somewhat negative correlation
+
+states[['State','total_ratio']].sort_index(by='total_ratio', ascending = True)
+
+#Age of Adoption
+states[['State','Under_1_year','1-5_years','6-10_years','11-15_years','16+_years']]
+
+#Time between termination of parental rights & adoption
+states[['State','<1_month','1-5_months','6-11_months','12-17_months','18-23_months','24-29_months','30-35_months',\
+    '36-48_months','48+_months']]
+
+#Subsidies
+states[['State','Receives_subsidy','Total']]
+states.sort_index(by = ['State','Receives_subsidy','Total'],\
+    ascending = [False,False,True])[['State','Receives_subsidy','Total']]                   #New Hampshire, Puerto Rico, and Alabama low
+
+plt.scatter(states['Total'],states['Receives_subsidy'])
+
+#Basic graphs
+plt.hist(states['Total'])
+
 
 #Look at some basic scatterplots
 
@@ -294,6 +337,18 @@ plt.scatter(states.Asian,states.Total)
 plt.xlabel('% Asian Adoptions')
 plt.ylabel('Total Adoptions')
 plt.plot([states.Asian.mean(),states.Asian.mean()],[0,states.Total.max()],linewidth=2,color='red')
+
+
+
+#Try a decision tree
+
+#Split into train and test sets
+from sklearn.cross_validation import train_test_split
+train, test = train_test_split(states,test_size=.3,random_state=1)
+
+#Convert back to dataframes
+train = pd.DataFrame(data=train,columns=states.columns)
+test = pd.DataFrame(data=test, columns=states.columns)
 
 '''
 
